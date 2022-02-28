@@ -1,9 +1,10 @@
-FROM nginx
-COPY ./src /usr/share/nginx/html
-# support running as arbitrary user which belogs to the root group
-RUN chmod g+rwx /var/cache/nginx /var/run /var/log/nginx
-# users are not allowed to listen on priviliged ports
-RUN sed -i.bak 's/listen\(.*\)80;/listen 1191;/' /etc/nginx/conf.d/default.conf
-EXPOSE 1191
-# comment user directive as master process is run as user in OpenShift anyhow
-RUN sed -i.bak 's/^user/#user/' /etc/nginx/nginx.conf
+FROM python:3.8-slim-buster
+
+WORKDIR /python-docker
+
+COPY requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
+COPY src/api.py api.py
+
+CMD [ "python3","api.py"]
