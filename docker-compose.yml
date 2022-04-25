@@ -1,0 +1,37 @@
+version: "3.9"
+
+
+services:
+
+  app:
+    build: .
+    command: python -u api.py
+    container_name: mynetapp
+    networks:
+      - nef_emulator_default
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/mynetapp
+    links:
+      - db
+  db:
+    image: mongo:latest
+    container_name: mynetapp_db
+    networks:
+      - nef_emulator_default
+    hostname: mynetapp_db
+    command: mongod --port 27018
+    environment:
+      - MONGO_INITDB_DATABASE=policies_db
+      - MONGO_INITDB_ROOT_USERNAME=root
+      - MONGO_INITDB_ROOT_PASSWORD=pass
+    volumes:
+      - ./init-db.js:/docker-entrypoint-initdb.d/init-db.js:ro
+    ports:
+      - "27018:27018"
+
+
+networks:
+  nef_emulator_default:
+    external: true

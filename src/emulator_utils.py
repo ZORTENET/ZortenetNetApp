@@ -28,4 +28,4 @@ def get_api_client(token) -> swagger_client.ApiClient:
 
 
 def get_host_of_the_nef_emulator() -> str:
-    return "http://localhost:8888"
+    return "http://backend"
