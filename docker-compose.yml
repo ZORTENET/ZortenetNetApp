@@ -34,4 +34,3 @@ services:
 
 networks:
   nef_emulator_default:
-    external: true
