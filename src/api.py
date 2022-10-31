@@ -1,13 +1,14 @@
 import time
 from flask import Flask, request, jsonify
 import requests
-import emulator_utils
 import evolved5g
+import os
+from queue import Queue
+
 from evolved5g.sdk import LocationSubscriber
 from evolved5g.swagger_client.rest import ApiException
-import pymongo
-from pymongo import MongoClient
-
+from evolved5g.swagger_client import LoginApi, User ,Configuration ,ApiClient
+from evolved5g.swagger_client.models import Token
 
 policy_db={}
 
@@ -17,21 +18,40 @@ vapp_db={
     'token':0
 }
 
-
-def get_db():
-    client = MongoClient(host='mynetapp_db',
-                         port=27018, 
-                         username='root', 
-                         password='pass',
-                        authSource="admin")
-    db = client["policies_db"]
-    return db
+q = Queue(maxsize = 1)
 
 
+netapp_host=os.environ['netapp_host']
+netapp_ip=os.environ['netapp_ip']
+netapp_port=os.environ['netapp_port']
 
-netapp_host="mynetapp"
-token=emulator_utils.get_token()
+nef_url=os.environ['nef_url']
+nef_user=os.environ['nef_user']
+nef_pass=os.environ['nef_pass']
+
+
+
+def get_token(username,password):
+    configuration = Configuration()
+    configuration.host = nef_url
+    api_client = ApiClient(configuration=configuration)
+    api_client.select_header_content_type(["application/x-www-form-urlencoded"])
+    api = LoginApi(api_client)
+    token = api.login_access_token_api_v1_login_access_token_post("", username, password, "", "", "")
+    return token
+
+
+def get_api_client(token):
+    configuration = Configuration()
+    configuration.host = nef_url
+    configuration.access_token = token.access_token
+    api_client = swagger_client.ApiClient(configuration=configuration)
+    return api_client
+
+
+token=get_token(nef_user,nef_pass)
 token=token.access_token
+
          
 
 app = Flask(__name__)
@@ -40,20 +60,8 @@ app = Flask(__name__)
 
 @app.route('/', methods=["GET", "POST"])
 def index():
-    policy_db={}
-    return "ok"
-
-
-
-
-@app.route('/policies')
-def get_stored_policies():
-    db = get_db()
-    _policies = db.animal_tb.find()
-    policies = [{"id": policy["id"], "type": animal["type"]} for policy in _policies]
-    return jsonify({"policies": policies})
-
-
+    # print(netapp_host)
+    return netapp_host,netapp_ip
 
 
 @app.route('/vapp_connect',methods=["POST"])
@@ -62,14 +70,13 @@ def vappConnect():
     vapp_ip=data['vapp_ip']
     port=data['port']
 
-    token=emulator_utils.get_token()
+    token=get_token(nef_user,nef_pass)
 
 
     vapp_db['host_name']=vapp_ip
     vapp_db['port']=port
     vapp_db['token']=token.access_token
 
-    print(vapp_db)
     return vapp_db['token']
 
 
@@ -80,29 +87,27 @@ def vappRegister():
     numOfreports=data['num_of_reports']
     exp_time=data['exp_time']
 
-    netapp_id = "mynetapp"
-    host = emulator_utils.get_host_of_the_nef_emulator()
     token = vapp_db['token']
 
-    location_subscriber = LocationSubscriber(host, token)
+    location_subscriber = LocationSubscriber(nef_url, token)
 
 
     subscription=""
-    reps="OK"
+    resp="OK"
     try:
 
 
         subscription = location_subscriber.create_subscription(
-            netapp_id=netapp_id,
+            netapp_id=netapp_host,
             external_id=_id,
-            notification_destination="http://{}:5000/netAppCallback".format(netapp_host),
+            notification_destination="http://{}:{}/netAppCallback".format(netapp_host,netapp_port),
             maximum_number_of_reports=numOfreports,
             monitor_expire_time=exp_time
         )
 
     except evolved5g.swagger_client.rest.ApiException as e:
         resp="ApiException"
-        print(e.message)
+        # print(e.message)
 
 
     return resp
@@ -129,10 +134,9 @@ def setPolicy():
 def get_subsciptions():
 
     resp="OK"
-    host = emulator_utils.get_host_of_the_nef_emulator()
-    location_subscriber = LocationSubscriber(host, token)
+    location_subscriber = LocationSubscriber(nef_url, token)
     try:
-        all_subscriptions = location_subscriber.get_all_subscriptions("mynetapp", 0, 100)
+        all_subscriptions = location_subscriber.get_all_subscriptions(netapp_host, 0, 100)
         print(all_subscriptions)
 
     except ApiException as ex:
@@ -140,6 +144,17 @@ def get_subsciptions():
 
 
     return resp
+
+
+@app.route('/VappConsume',methods=["GET","POST"])
+def VappConsume():
+    log_record={
+        "nothing":"nothing"
+    }
+    if(not q.empty()):
+        log_record=q.get()
+
+    return log_record
 
 
 
@@ -178,11 +193,15 @@ def netAppCallback():
     except:
         pass
 
-    print(data)
+    if(q.empty()):
+        q.put(data)
+    else:
+        q.get()
+        q.put(data)
 
     return jsonify(data)
 
 if __name__ == '__main__':   
-    app.run(host='0.0.0.0',port=5000,debug=True)
+    app.run(host=netapp_ip,port=netapp_port,debug=True)
 
 

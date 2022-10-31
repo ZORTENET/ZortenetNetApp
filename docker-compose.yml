@@ -5,33 +5,28 @@ services:
 
   app:
     build: .
-    command: python -u api.py
-    container_name: mynetapp
-    networks:
-      - nef_emulator_default
-    ports:
-      - "5000:5000"
-    volumes:
-      - .:/mynetapp
-    links:
-      - db
-  db:
-    image: mongo:latest
-    container_name: mynetapp_db
-    networks:
-      - nef_emulator_default
-    hostname: mynetapp_db
-    command: mongod --port 27018
     environment:
-      - MONGO_INITDB_DATABASE=policies_db
-      - MONGO_INITDB_ROOT_USERNAME=root
-      - MONGO_INITDB_ROOT_PASSWORD=pass
-    volumes:
-      - ./init-db.js:/docker-entrypoint-initdb.d/init-db.js:ro
+      - nef_url=${nef_url}
+      - nef_port=${nef_port}
+      - nef_user=${nef_user}
+      - nef_pass=${nef_pass}
+      - netapp_host=${netapp_host}
+      - netapp_ip=${netapp_ip}
+      - netapp_port=${netapp_port}
+
+
+
+    container_name: zorte_netapp
+    networks:
+      - nef_emulator_services_default
     ports:
-      - "27018:27018"
+      - "5001:5000"
+    volumes:
+      - ./src/api.py:/zortenet_netapp/api.py
+
+    command: python -u /zortenet_netapp/api.py
 
 
 networks:
-  nef_emulator_default:
+  nef_emulator_services_default:
     external: true
