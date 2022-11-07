@@ -7,3 +7,5 @@ RUN pip3 install --upgrade pip
 RUN pip3 install -r requirements.txt
 
 COPY src/api.py api.py
+
+CMD python -u /zortenet_netapp/api.py

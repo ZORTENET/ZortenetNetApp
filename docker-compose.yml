@@ -18,7 +18,6 @@ services:
       - nef_emulator_services_default
     ports:
       - "5001:5000"
-    command: python -u /zortenet_netapp/api.py
 
 
 networks:
