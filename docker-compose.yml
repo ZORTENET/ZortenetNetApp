@@ -1,6 +1,5 @@
 version: "3.9"
 
-
 services:
 
   app:
@@ -14,16 +13,11 @@ services:
       - netapp_ip=${netapp_ip}
       - netapp_port=${netapp_port}
 
-
-
     container_name: zorte_netapp
     networks:
       - nef_emulator_services_default
     ports:
       - "5001:5000"
-    volumes:
-      - ./src/api.py:/zortenet_netapp/api.py
-
     command: python -u /zortenet_netapp/api.py
 
 
