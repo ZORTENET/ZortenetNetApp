@@ -4,7 +4,7 @@ import requests
 import evolved5g
 import os
 from queue import Queue
-
+import json
 from evolved5g.sdk import LocationSubscriber
 from evolved5g.swagger_client.rest import ApiException
 from evolved5g.swagger_client import LoginApi, User ,Configuration ,ApiClient
@@ -62,6 +62,97 @@ app = Flask(__name__)
 def index():
     # print(netapp_host)
     return netapp_host,netapp_ip
+
+
+@app.route('/get_scenario', methods=["GET", "POST"])
+def get_scenario():
+    get_scenario_url="{}/api/v1/utils/export/scenario".format(nef_url)
+    headers={
+        "accept": "application/json",
+        "Authorization":"Bearer {}".format(token)
+    }
+    resp = requests.get(get_scenario_url, headers=headers,verify=False)
+    return resp.json()
+
+
+
+@app.route('/start_ues', methods=["GET", "POST"])
+def start_ues():
+    # print(netapp_host)
+    get_scenario_url="{}/api/v1/utils/export/scenario".format(nef_url)
+    headers={
+        "accept": "application/json",
+        "Authorization":"Bearer {}".format(token)
+    }
+    resp = requests.get(get_scenario_url, headers=headers,verify=False)
+
+    data=json.loads(resp.text)
+
+    supis=[]
+    for j in data["ue_path_association"]:
+        supis.append(j["supi"])
+
+
+    headers={
+        "Content-Type": "application/json",
+        "accept": "application/json",
+        "Authorization":"Bearer {}".format(token)
+    }
+
+    payload={
+        "supi":""
+    }
+
+    start_supi_url="{}/api/v1/ue_movement/start-loop".format(nef_url)
+
+    for supi in supis:
+        payload["supi"]=supi
+        resp = requests.post(start_supi_url, headers=headers,json=payload,verify=False)
+
+
+
+    return {"supis":supis}
+
+
+@app.route('/stop_ues', methods=["GET", "POST"])
+def stop_ues():
+    # print(netapp_host)
+    get_scenario_url="{}/api/v1/utils/export/scenario".format(nef_url)
+    headers={
+        "accept": "application/json",
+        "Authorization":"Bearer {}".format(token)
+    }
+    resp = requests.get(get_scenario_url, headers=headers,verify=False)
+
+    data=json.loads(resp.text)
+
+    supis=[]
+    for j in data["ue_path_association"]:
+        supis.append(j["supi"])
+
+
+    headers={
+        "Content-Type": "application/json",
+        "accept": "application/json",
+        "Authorization":"Bearer {}".format(token)
+    }
+
+    payload={
+        "supi":""
+    }
+
+    start_supi_url="{}/api/v1/ue_movement/stop-loop".format(nef_url)
+
+    for supi in supis:
+        payload["supi"]=supi
+        resp = requests.post(start_supi_url, headers=headers,json=payload,verify=False)
+
+
+
+    return {"supis":supis}
+
+
+
 
 
 @app.route('/vapp_connect',methods=["POST"])
