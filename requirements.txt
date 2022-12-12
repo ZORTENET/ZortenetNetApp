@@ -5,4 +5,3 @@ redis
 pyopenssl
 termcolor
 evolved5g
-numpy
