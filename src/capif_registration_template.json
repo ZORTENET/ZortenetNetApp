@@ -1,0 +1,17 @@
+{
+    "folder_to_store_certificates": "",
+    "capif_host": "",
+    "capif_http_port": "",
+    "capif_https_port": "",
+    "capif_netapp_username": "zortenet_user",
+    "capif_netapp_password": "zorte_netapp_password",
+    "capif_callback_url": "",
+    "description": "zorte_app_description",
+    "csr_common_name": "zorte_app_common_name",
+    "csr_organizational_unit": "zorte_app_ou",
+    "csr_organization": "zorte_app_o",
+    "crs_locality": "Athens",
+    "csr_state_or_province_name": "Athens",
+    "csr_country_name": "GR",
+    "csr_email_address": "zorte@example.com"
+}
