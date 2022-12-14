@@ -1,25 +1,34 @@
 version: "3.9"
 
+
 services:
 
   app:
     build: .
     environment:
-      - nef_url=${nef_url}
-      - nef_port=${nef_port}
-      - nef_user=${nef_user}
-      - nef_pass=${nef_pass}
-      - netapp_host=${netapp_host}
-      - netapp_ip=${netapp_ip}
-      - netapp_port=${netapp_port}
+      - NEF_ADDRESS=${NEF_ADDRESS}
+      - NEF_USER=${NEF_USER}
+      - NEF_PASSWORD=${NEF_PASSWORD}
+      - PATH_TO_CERTS=${PATH_TO_CERTS}
+      - CAPIF_HOSTNAME=${CAPIF_HOSTNAME}
+      - CAPIF_PORT_HTTP=${CAPIF_PORT_HTTP}
+      - CAPIF_PORT_HTTPS=${CAPIF_PORT_HTTPS}
+      - CALLBACK_ADDRESS=${CALLBACK_ADDRESS}
+      - NETAPP_ADDRESS=${NETAPP_ADDRESS}
+
 
     container_name: zorte_netapp
-    networks:
-      - nef_emulator_services_default
+
+
+    extra_hosts:
+      - host.docker.internal:host-gateway
+      - capifcore:host-gateway
     ports:
-      - "5001:5000"
-
-
-networks:
-  nef_emulator_services_default:
-    external: true
+      - "5000:5000"
+    volumes:
+      - ./src/api.py:/zortenet_netapp/api.py
+      - ./src/netapp_utils.py:/zortenet_netapp/netapp_utils.py
+      - ./src/capif_onboarding:/zortenet_netapp/capif_onboarding
+      - ./src/prepare.sh:/zortenet_netapp/prepare.sh
+      - ./src/capif_registration_template.json:/zortenet_netapp/capif_registration_template.json
+      
