@@ -32,15 +32,7 @@ q = Queue(maxsize = 1)
 
 
 callback_url=os.environ["CALLBACK_ADDRESS"]
-netapp_address=os.environ["NETAPP_ADDRESS"]
-netapp_info=netapp_address.split(":")
-netapp_ip=netapp_info[0]
-netapp_port=netapp_info[1]
-
-netapp_info=netapp_address.split(":")
-netapp_host=netapp_info[0]
-netapp_callback_port=netapp_info[1]
-
+netapp_host="zortenetapp"
 
 capif_host=os.environ['CAPIF_HOSTNAME']
 capif_port_http=os.environ['CAPIF_PORT_HTTP']
@@ -51,14 +43,11 @@ nef_address=os.environ['NEF_ADDRESS']
 nef_user=os.environ['NEF_USER']
 nef_pass=os.environ['NEF_PASSWORD']
 
-nef_info=nef_address.split(":")
-nef_ip=nef_info[0]
-nef_port=nef_info[1]
-nef_url="http://{}:{}".format(nef_ip,nef_port)
+nef_url="http://{}".format(nef_address)
+
 
 token=netapp_utils.get_token(nef_user,nef_pass,nef_url)
-print(token)         
-#location_subscriber = LocationSubscriber(nef_url, token,  capif_certs_path, capif_host, capif_port_https)
+# print(token)         
 
 
 app = Flask(__name__)
@@ -67,7 +56,7 @@ app = Flask(__name__)
 
 @app.route('/', methods=["GET", "POST"])
 def index():
-    return netapp_host,netapp_ip
+    return "hi"
 
 
 @app.route('/vapp_connect',methods=["POST"])
@@ -105,7 +94,7 @@ def vappRegister_capif():
     subscription = location_subscriber.create_subscription(
         netapp_id="zorte_netapp",
         external_id=_id,
-        notification_destination="http://{}:{}/netAppCallback".format(netapp_host,netapp_callback_port),
+        notification_destination="http://{}/netAppCallback".format(callback_url),
         maximum_number_of_reports=numOfreports,
         monitor_expire_time=exp_time
     )
@@ -145,7 +134,7 @@ def vappRegister():
         subscription = location_subscriber.create_subscription(
             netapp_id=netapp_host,
             external_id=_id,
-            notification_destination="http://{}:{}/netAppCallback".format(netapp_host,netapp_port),
+            notification_destination="http://{}/netAppCallback".format(callback_url),
             maximum_number_of_reports=numOfreports,
             monitor_expire_time=exp_time
         )
