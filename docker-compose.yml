@@ -6,20 +6,6 @@ services:
   app:
     build: .
     environment:
-      # - nef_ip=${nef_ip}
-      # - nef_port=${nef_port}
-      # - nef_user=${nef_user}
-      # - nef_pass=${nef_pass}
-      # - nef_proto=${nef_proto}
-      # - netapp_host=${netapp_host}
-      # - netapp_ip=${netapp_ip}
-      # - netapp_port=${netapp_port}
-      # - capif_host=${capif_host}
-      # - capif_port_http=${capif_port_http}
-      # - capif_port_https=${capif_port_https}
-      # - capif_certs_path=${capif_certs_path}
-      # - netapp_callback_port=${netapp_callback_port}
-
       - NEF_ADDRESS=${NEF_ADDRESS}
       - NEF_USER=${NEF_USER}
       - NEF_PASSWORD=${NEF_PASSWORD}
@@ -28,21 +14,16 @@ services:
       - CAPIF_PORT_HTTP=${CAPIF_PORT_HTTP}
       - CAPIF_PORT_HTTPS=${CAPIF_PORT_HTTPS}
       - CALLBACK_ADDRESS=${CALLBACK_ADDRESS}
-      - NETAPP_ADDRESS=${NETAPP_ADDRESS}
-
 
     container_name: zorte_netapp
 
-
     extra_hosts:
-      - host.docker.internal:host-gateway
-      - capifcore:host-gateway
+      - capifcore:${CAPIF_IP}
     ports:
       - "5000:5000"
     volumes:
       - ./src/api.py:/zortenet_netapp/api.py
       - ./src/netapp_utils.py:/zortenet_netapp/netapp_utils.py
-      - ./src/capif_onboarding:/zortenet_netapp/capif_onboarding
       - ./src/prepare.sh:/zortenet_netapp/prepare.sh
       - ./src/capif_registration_template.json:/zortenet_netapp/capif_registration_template.json
       

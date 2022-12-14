@@ -31,32 +31,8 @@ vapp_db={
 q = Queue(maxsize = 1)
 
 
-# netapp_host=os.environ['netapp_host']
-# netapp_ip=os.environ['netapp_ip']
-# netapp_port=os.environ['netapp_port']
-# netapp_callback_port=os.environ['netapp_callback_port']
-
-# nef_ip=os.environ['nef_ip']
-# nef_port=os.environ['nef_port']
-# nef_user=os.environ['nef_user']
-# nef_pass=os.environ['nef_pass']
-# nef_proto=os.environ['nef_proto']
-
-# capif_host=os.environ['capif_host']
-# capif_port_http=os.environ['capif_port_http']
-# capif_port_https=os.environ['capif_port_https']
-# capif_certs_path=os.environ['capif_certs_path']
-
 callback_url=os.environ["CALLBACK_ADDRESS"]
-netapp_address=os.environ["NETAPP_ADDRESS"]
-netapp_info=netapp_address.split(":")
-netapp_ip=netapp_info[0]
-netapp_port=netapp_info[1]
-
-netapp_info=netapp_address.split(":")
-netapp_host=netapp_info[0]
-netapp_callback_port=netapp_info[1]
-
+netapp_host="zortenetapp"
 
 capif_host=os.environ['CAPIF_HOSTNAME']
 capif_port_http=os.environ['CAPIF_PORT_HTTP']
@@ -67,48 +43,11 @@ nef_address=os.environ['NEF_ADDRESS']
 nef_user=os.environ['NEF_USER']
 nef_pass=os.environ['NEF_PASSWORD']
 
-nef_info=nef_address.split(":")
-nef_ip=nef_info[0]
-nef_port=nef_info[1]
-nef_url="http://{}:{}".format(nef_ip,nef_port)
+nef_url="http://{}".format(nef_address)
 
-# capif_registration={
-#   "folder_to_store_certificates": capif_certs_path,
-#   "capif_host": capif_host,
-#   "capif_http_port": capif_port_http,
-#   "capif_https_port": capif_port_https,
-#   "capif_netapp_username": "zortenet_user",
-#   "capif_netapp_password": "zorte_netapp_password",
-#   "capif_callback_url": "http://{}:{}".format(netapp_host,netapp_callback_port),
-#   "description": "zorte_app_description",
-#   "csr_common_name": "zorte_app_common_name",
-#   "csr_organizational_unit": "zorte_app_ou",
-#   "csr_organization": "zorte_app_o",
-#   "crs_locality": "Athens",
-#   "csr_state_or_province_name": "Athens",
-#   "csr_country_name": "GR",
-#   "csr_email_address": "zorte@example.com"
-# }
-
-# json_object = json.dumps(capif_registration, indent=4)
-# with open("./capif_registration.json", "w") as outfile:
-#     outfile.write(json_object)
-
-
-
-# thread = Thread(target = register_function)
-# thread.start()
-
-#subprocess.run(["sh", "./prepare.sh"], stderr=subprocess.PIPE, text=True)
-
-# subprocess.Popen(["sh", "./prepare.sh"])
-print("------>",nef_user)
-print("------>",nef_pass)
-print("------>",nef_url)
 
 token=netapp_utils.get_token(nef_user,nef_pass,nef_url)
-print(token)         
-#location_subscriber = LocationSubscriber(nef_url, token,  capif_certs_path, capif_host, capif_port_https)
+# print(token)         
 
 
 app = Flask(__name__)
@@ -117,7 +56,7 @@ app = Flask(__name__)
 
 @app.route('/', methods=["GET", "POST"])
 def index():
-    return netapp_host,netapp_ip
+    return "hi"
 
 
 @app.route('/vapp_connect',methods=["POST"])
@@ -155,7 +94,7 @@ def vappRegister_capif():
     subscription = location_subscriber.create_subscription(
         netapp_id="zorte_netapp",
         external_id=_id,
-        notification_destination="http://{}:{}/netAppCallback".format(netapp_host,netapp_callback_port),
+        notification_destination="http://{}/netAppCallback".format(callback_url),
         maximum_number_of_reports=numOfreports,
         monitor_expire_time=exp_time
     )
@@ -195,7 +134,7 @@ def vappRegister():
         subscription = location_subscriber.create_subscription(
             netapp_id=netapp_host,
             external_id=_id,
-            notification_destination="http://{}:{}/netAppCallback".format(netapp_host,netapp_port),
+            notification_destination="http://{}/netAppCallback".format(callback_url),
             maximum_number_of_reports=numOfreports,
             monitor_expire_time=exp_time
         )
