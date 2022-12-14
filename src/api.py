@@ -1,12 +1,23 @@
 import time
 from flask import Flask, request, jsonify
 import requests
-import emulator_utils
 import evolved5g
-from evolved5g.sdk import LocationSubscriber
+import os
+import subprocess
+import json
+from queue import Queue
+import netapp_utils
+import redis
+from threading import Thread
+
+from evolved5g.sdk import LocationSubscriber ,CAPIFInvokerConnector
 from evolved5g.swagger_client.rest import ApiException
-import pymongo
-from pymongo import MongoClient
+from evolved5g.swagger_client import LoginApi, User ,Configuration ,ApiClient
+from evolved5g.swagger_client.models import Token
+
+
+def register_function():
+    subprocess.run(["sh", "./prepare.sh"], stderr=subprocess.PIPE, text=True)
 
 
 policy_db={}
@@ -17,22 +28,38 @@ vapp_db={
     'token':0
 }
 
-
-def get_db():
-    client = MongoClient(host='mynetapp_db',
-                         port=27018, 
-                         username='root', 
-                         password='pass',
-                        authSource="admin")
-    db = client["policies_db"]
-    return db
+q = Queue(maxsize = 1)
 
 
+callback_url=os.environ["CALLBACK_ADDRESS"]
+netapp_address=os.environ["NETAPP_ADDRESS"]
+netapp_info=netapp_address.split(":")
+netapp_ip=netapp_info[0]
+netapp_port=netapp_info[1]
 
-netapp_host="mynetapp"
-token=emulator_utils.get_token()
-token=token.access_token
-         
+netapp_info=netapp_address.split(":")
+netapp_host=netapp_info[0]
+netapp_callback_port=netapp_info[1]
+
+
+capif_host=os.environ['CAPIF_HOSTNAME']
+capif_port_http=os.environ['CAPIF_PORT_HTTP']
+capif_port_https=os.environ['CAPIF_PORT_HTTPS']
+capif_certs_path=os.environ['PATH_TO_CERTS']
+
+nef_address=os.environ['NEF_ADDRESS']
+nef_user=os.environ['NEF_USER']
+nef_pass=os.environ['NEF_PASSWORD']
+
+nef_info=nef_address.split(":")
+nef_ip=nef_info[0]
+nef_port=nef_info[1]
+nef_url="http://{}:{}".format(nef_ip,nef_port)
+
+token=netapp_utils.get_token(nef_user,nef_pass,nef_url)
+print(token)         
+#location_subscriber = LocationSubscriber(nef_url, token,  capif_certs_path, capif_host, capif_port_https)
+
 
 app = Flask(__name__)
 
@@ -40,20 +67,7 @@ app = Flask(__name__)
 
 @app.route('/', methods=["GET", "POST"])
 def index():
-    policy_db={}
-    return "ok"
-
-
-
-
-@app.route('/policies')
-def get_stored_policies():
-    db = get_db()
-    _policies = db.animal_tb.find()
-    policies = [{"id": policy["id"], "type": animal["type"]} for policy in _policies]
-    return jsonify({"policies": policies})
-
-
+    return netapp_host,netapp_ip
 
 
 @app.route('/vapp_connect',methods=["POST"])
@@ -62,15 +76,53 @@ def vappConnect():
     vapp_ip=data['vapp_ip']
     port=data['port']
 
-    token=emulator_utils.get_token()
-
-
     vapp_db['host_name']=vapp_ip
     vapp_db['port']=port
-    vapp_db['token']=token.access_token
+    vapp_db['token']=token
 
-    print(vapp_db)
     return vapp_db['token']
+
+
+@app.route('/subscription_capif', methods=["POST"])
+def vappRegister_capif():
+    data = request.json
+    _id=data['id']
+    numOfreports=data['num_of_reports']
+    exp_time=data['exp_time']
+
+
+    location_subscriber = LocationSubscriber(nef_url = nef_url,
+                                             nef_bearer_access_token = token,
+                                             folder_path_for_certificates_and_capif_api_key=capif_certs_path,
+                                             capif_host=capif_host,
+                                             capif_https_port=capif_port_https)
+
+    subscription=""
+    resp="OK"
+    # try:
+
+
+    subscription = location_subscriber.create_subscription(
+        netapp_id="zorte_netapp",
+        external_id=_id,
+        notification_destination="http://{}:{}/netAppCallback".format(netapp_host,netapp_callback_port),
+        maximum_number_of_reports=numOfreports,
+        monitor_expire_time=exp_time
+    )
+
+
+    monitoring_response = subscription.to_dict()
+    print(monitoring_response)
+
+
+    # except evolved5g.swagger_client.rest.ApiException as e:
+    #     resp="ApiException"
+    #     # print(e.message)
+
+
+
+
+    return resp
 
 
 @app.route('/subscription', methods=["POST"])
@@ -80,29 +132,31 @@ def vappRegister():
     numOfreports=data['num_of_reports']
     exp_time=data['exp_time']
 
-    netapp_id = "mynetapp"
-    host = emulator_utils.get_host_of_the_nef_emulator()
     token = vapp_db['token']
 
-    location_subscriber = LocationSubscriber(host, token)
+    location_subscriber = LocationSubscriber(nef_url, token)
 
 
     subscription=""
-    reps="OK"
+    resp="OK"
     try:
 
 
         subscription = location_subscriber.create_subscription(
-            netapp_id=netapp_id,
+            netapp_id=netapp_host,
             external_id=_id,
-            notification_destination="http://{}:5000/netAppCallback".format(netapp_host),
+            notification_destination="http://{}:{}/netAppCallback".format(netapp_host,netapp_port),
             maximum_number_of_reports=numOfreports,
             monitor_expire_time=exp_time
         )
 
+
+
+
     except evolved5g.swagger_client.rest.ApiException as e:
         resp="ApiException"
-        print(e.message)
+
+
 
 
     return resp
@@ -129,10 +183,9 @@ def setPolicy():
 def get_subsciptions():
 
     resp="OK"
-    host = emulator_utils.get_host_of_the_nef_emulator()
-    location_subscriber = LocationSubscriber(host, token)
+    location_subscriber = LocationSubscriber(nef_url, token)
     try:
-        all_subscriptions = location_subscriber.get_all_subscriptions("mynetapp", 0, 100)
+        all_subscriptions = location_subscriber.get_all_subscriptions(netapp_host, 0, 100)
         print(all_subscriptions)
 
     except ApiException as ex:
@@ -140,6 +193,17 @@ def get_subsciptions():
 
 
     return resp
+
+
+@app.route('/VappConsume',methods=["GET","POST"])
+def VappConsume():
+    log_record={
+        "nothing":"nothing"
+    }
+    if(not q.empty()):
+        log_record=q.get()
+
+    return log_record
 
 
 
@@ -153,7 +217,7 @@ def netAppCallback():
         'msg':data
     }
 
-    # print(data)
+    print(data)
 
 
     ex_id=data['externalId']
@@ -178,11 +242,15 @@ def netAppCallback():
     except:
         pass
 
-    print(data)
+    if(q.empty()):
+        q.put(data)
+    else:
+        q.get()
+        q.put(data)
 
     return jsonify(data)
 
 if __name__ == '__main__':   
-    app.run(host='0.0.0.0',port=5000,debug=True)
+    app.run(host="0.0.0.0",port=5000,debug=True)
 
 
