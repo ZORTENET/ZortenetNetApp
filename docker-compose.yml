@@ -14,8 +14,6 @@ services:
       - CAPIF_PORT_HTTP=${CAPIF_PORT_HTTP}
       - CAPIF_PORT_HTTPS=${CAPIF_PORT_HTTPS}
       - CALLBACK_ADDRESS=${CALLBACK_ADDRESS}
-      - NETAPP_ADDRESS=${NETAPP_ADDRESS}
-
 
     container_name: zorte_netapp
 
@@ -23,9 +21,9 @@ services:
       - capifcore:${CAPIF_IP}
     ports:
       - "5000:5000"
-    volumes:
-      - ./src/api.py:/zortenet_netapp/api.py
-      - ./src/netapp_utils.py:/zortenet_netapp/netapp_utils.py
-      - ./src/prepare.sh:/zortenet_netapp/prepare.sh
-      - ./src/capif_registration_template.json:/zortenet_netapp/capif_registration_template.json
+    #volumes:
+    #  - ./src/api.py:/zortenet_netapp/api.py
+    #  - ./src/netapp_utils.py:/zortenet_netapp/netapp_utils.py
+    #  - ./src/prepare.sh:/zortenet_netapp/prepare.sh
+    #  - ./src/capif_registration_template.json:/zortenet_netapp/capif_registration_template.json
       
