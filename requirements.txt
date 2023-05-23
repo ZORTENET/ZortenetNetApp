@@ -1,7 +1,5 @@
-flask
-requests
-configparser
-redis
-pyopenssl
-termcolor
+Flask
+requests==2.26.0
 evolved5g
+pyopenssl
+pyjwt

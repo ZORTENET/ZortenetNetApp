@@ -6,18 +6,14 @@ import os
 import subprocess
 import json
 from queue import Queue
-import netapp_utils
-import redis
+# import netapp_utils
 from threading import Thread
+import datetime
 
 from evolved5g.sdk import LocationSubscriber ,CAPIFInvokerConnector
 from evolved5g.swagger_client.rest import ApiException
 from evolved5g.swagger_client import LoginApi, User ,Configuration ,ApiClient
 from evolved5g.swagger_client.models import Token
-
-
-def register_function():
-    subprocess.run(["sh", "./prepare.sh"], stderr=subprocess.PIPE, text=True)
 
 
 policy_db={}
@@ -31,23 +27,25 @@ vapp_db={
 q = Queue(maxsize = 1)
 
 
-callback_url=os.environ["CALLBACK_ADDRESS"]
-netapp_host="zortenetapp"
-
-capif_host=os.environ['CAPIF_HOSTNAME']
-capif_port_http=os.environ['CAPIF_PORT_HTTP']
-capif_port_https=os.environ['CAPIF_PORT_HTTPS']
-capif_certs_path=os.environ['PATH_TO_CERTS']
-
-nef_address=os.environ['NEF_ADDRESS']
-nef_user=os.environ['NEF_USER']
-nef_pass=os.environ['NEF_PASSWORD']
-
-nef_url="http://{}".format(nef_address)
+network_app_id = "Zortenetapp"
+nef_url = "https://{}:{}".format(os.getenv('NEF_IP'), os.environ.get('NEF_PORT'))
+nef_callback = "http://{}:{}/netAppCallback".format(os.getenv('NEF_CALLBACK_IP'), os.environ.get('NEF_CALLBACK_PORT'))
+nef_user = os.getenv('NEF_USER')
+nef_pass = os.environ.get('NEF_PASS')
+capif_host = os.getenv('CAPIF_HOSTNAME')
+capif_https_port = os.environ.get('CAPIF_PORT_HTTPS')
+folder_path_for_certificates_and_capif_api_key = os.environ.get('PATH_TO_CERTS')
 
 
-token=netapp_utils.get_token(nef_user,nef_pass,nef_url)
-# print(token)         
+configuration = Configuration()
+configuration.host = nef_url
+configuration.verify_ssl = False
+api_client = ApiClient(configuration=configuration)
+api_client.select_header_content_type(["application/x-www-form-urlencoded"])
+api = LoginApi(api_client)
+token = api.login_access_token_api_v1_login_access_token_post("", nef_user, nef_pass, "", "", "")
+
+nef_token = token.access_token
 
 
 app = Flask(__name__)
@@ -59,96 +57,58 @@ def index():
     return "hi"
 
 
-@app.route('/vapp_connect',methods=["POST"])
-def vappConnect():
-    data=request.json
-    vapp_ip=data['vapp_ip']
-    port=data['port']
 
-    vapp_db['host_name']=vapp_ip
-    vapp_db['port']=port
-    vapp_db['token']=token
-
-    return vapp_db['token']
-
-
-@app.route('/subscription_capif', methods=["POST"])
+@app.route('/subscription', methods=["GET","POST"])
 def vappRegister_capif():
     data = request.json
-    _id=data['id']
-    numOfreports=data['num_of_reports']
-    exp_time=data['exp_time']
+    external_id=data['id']
+    times=data['num_of_reports']
+    expire_time=data['exp_time']
+    # netapp_id="zorte_netapp"
 
 
-    location_subscriber = LocationSubscriber(nef_url = nef_url,
-                                             nef_bearer_access_token = token,
-                                             folder_path_for_certificates_and_capif_api_key=capif_certs_path,
-                                             capif_host=capif_host,
-                                             capif_https_port=capif_port_https)
+    # monitor_subscription = netapp_utils.monitor_subscription(
+    #     expire_time,
+    #     netapp_id,
+    #     external_id,
+    #     times, 
+    #     nef_address,
+    #     nef_access_token, 
+    #     certificate_folder, 
+    #     capifhost, 
+    #     capifport_https, 
+    #     callback_server
+    # )
 
-    subscription=""
-    resp="OK"
-    # try:
 
+
+    # resp="OK"
+
+    # monitoring_response = monitor_subscription.to_dict()
+    # print(monitoring_response)
+
+    # expire_time = (datetime.datetime.today() + datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    # network_app_id = "Zortenetapp"
+    location_subscriber = LocationSubscriber(nef_url, nef_token, folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
+    # external_id = "10001@domain.com"
+    # print(nef_token)
 
     subscription = location_subscriber.create_subscription(
-        netapp_id="zorte_netapp",
-        external_id=_id,
-        notification_destination="http://{}/netAppCallback".format(callback_url),
-        maximum_number_of_reports=numOfreports,
-        monitor_expire_time=exp_time
+        netapp_id=network_app_id,
+        external_id=external_id,
+        notification_destination=nef_callback,
+        maximum_number_of_reports=times,
+        monitor_expire_time=expire_time
     )
-
-
     monitoring_response = subscription.to_dict()
-    print(monitoring_response)
-
-
-    # except evolved5g.swagger_client.rest.ApiException as e:
-    #     resp="ApiException"
-    #     # print(e.message)
 
 
 
 
-    return resp
+
+    return monitoring_response
 
 
-@app.route('/subscription', methods=["POST"])
-def vappRegister():
-    data = request.json
-    _id=data['id']
-    numOfreports=data['num_of_reports']
-    exp_time=data['exp_time']
-
-    token = vapp_db['token']
-
-    location_subscriber = LocationSubscriber(nef_url, token)
-
-
-    subscription=""
-    resp="OK"
-    try:
-
-
-        subscription = location_subscriber.create_subscription(
-            netapp_id=netapp_host,
-            external_id=_id,
-            notification_destination="http://{}/netAppCallback".format(callback_url),
-            maximum_number_of_reports=numOfreports,
-            monitor_expire_time=exp_time
-        )
-
-
-
-
-    except evolved5g.swagger_client.rest.ApiException as e:
-        resp="ApiException"
-
-
-
-
-    return resp
 
 
 @app.route('/setPolicy',methods=["POST"])
@@ -240,6 +200,6 @@ def netAppCallback():
     return jsonify(data)
 
 if __name__ == '__main__':   
-    app.run(host="0.0.0.0",port=5000,debug=True)
+    app.run(host='0.0.0.0',port=5000,debug=True)
 
 
