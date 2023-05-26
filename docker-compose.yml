@@ -4,11 +4,15 @@ version: "3"
 services:
 
   app:
-    build: .
+    # build: .
 
-   env_file:
-     - .env
- 
+    build:
+      context: ./src
+      dockerfile: Dockerfile 
+
+    env_file:
+      - .env
+
     environment:
       - NEF_IP=${NEF_IP}
       - NEF_PORT=${NEF_PORT}
@@ -25,7 +29,6 @@ services:
     container_name: zorte_netapp
 
     extra_hosts:
-      #- host.docker.internal:host-gateway
       - capifcore:${CAPIF_IP}
     ports:
       - "5000:5000"
