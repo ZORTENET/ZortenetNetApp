@@ -6,8 +6,8 @@ services:
   app:
     build: .
 
-#    env_file:
-#      - .env
+   env_file:
+     - .env
  
     environment:
       - NEF_IP=${NEF_IP}
