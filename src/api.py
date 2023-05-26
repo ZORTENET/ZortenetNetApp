@@ -64,34 +64,9 @@ def vappRegister_capif():
     external_id=data['id']
     times=data['num_of_reports']
     expire_time=data['exp_time']
-    # netapp_id="zorte_netapp"
 
-
-    # monitor_subscription = netapp_utils.monitor_subscription(
-    #     expire_time,
-    #     netapp_id,
-    #     external_id,
-    #     times, 
-    #     nef_address,
-    #     nef_access_token, 
-    #     certificate_folder, 
-    #     capifhost, 
-    #     capifport_https, 
-    #     callback_server
-    # )
-
-
-
-    # resp="OK"
-
-    # monitoring_response = monitor_subscription.to_dict()
-    # print(monitoring_response)
-
-    # expire_time = (datetime.datetime.today() + datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
-    # network_app_id = "Zortenetapp"
     location_subscriber = LocationSubscriber(nef_url, nef_token, folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
-    # external_id = "10001@domain.com"
-    # print(nef_token)
+
 
     subscription = location_subscriber.create_subscription(
         netapp_id=network_app_id,

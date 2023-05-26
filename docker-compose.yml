@@ -6,13 +6,26 @@ services:
   app:
     build: .
 
-    env_file:
-      - .env
+#    env_file:
+#      - .env
+ 
+    environment:
+      - NEF_IP=${NEF_IP}
+      - NEF_PORT=${NEF_PORT}
+      - NEF_USER=${NEF_USER}
+      - NEF_PASS=${NEF_PASS}
+      - PATH_TO_CERTS=${PATH_TO_CERTS}
+      - CAPIF_HOSTNAME=${CAPIF_HOSTNAME}
+      - CAPIF_PORT=${CAPIF_PORT}
+      - CAPIF_PORT_HTTPS=${CAPIF_PORT_HTTPS}
+      - CAPIF_IP=${CAPIF_IP}
+      - NEF_CALLBACK_IP=${NEF_CALLBACK_IP}
+      - NEF_CALLBACK_PORT=${NEF_CALLBACK_PORT}
 
     container_name: zorte_netapp
 
     extra_hosts:
-      - host.docker.internal:host-gateway
+      #- host.docker.internal:host-gateway
       - capifcore:${CAPIF_IP}
     ports:
       - "5000:5000"
