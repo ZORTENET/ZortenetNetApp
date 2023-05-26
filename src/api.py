@@ -6,7 +6,6 @@ import os
 import subprocess
 import json
 from queue import Queue
-# import netapp_utils
 from threading import Thread
 import datetime
 
@@ -100,23 +99,6 @@ def setPolicy():
     print(policy_db)
     return data
 
-
-
-
-@app.route('/get_subscriptions',methods=["GET"])
-def get_subsciptions():
-
-    resp="OK"
-    location_subscriber = LocationSubscriber(nef_url, token)
-    try:
-        all_subscriptions = location_subscriber.get_all_subscriptions(netapp_host, 0, 100)
-        print(all_subscriptions)
-
-    except ApiException as ex:
-        resp="ApiException"
-
-
-    return resp
 
 
 @app.route('/VappConsume',methods=["GET","POST"])
