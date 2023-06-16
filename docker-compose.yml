@@ -4,7 +4,6 @@ version: "3"
 services:
 
   app:
-    # build: .
 
     build:
       context: ./src
@@ -33,3 +32,14 @@ services:
     ports:
       - "5000:5000"
       
+  influxdb:
+    image: influxdb:1.8-alpine
+    ports:
+      - '8086:8086'
+
+    environment:
+      - INFLUXDB_DB=influx
+      - INFLUXDB_ADMIN_USER=admin
+      - INFLUXDB_ADMIN_PASSWORD=admin
+
+    container_name: influxdb

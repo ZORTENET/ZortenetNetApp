@@ -8,11 +8,57 @@ import json
 from queue import Queue
 from threading import Thread
 import datetime
+from influxdb import InfluxDBClient
 
-from evolved5g.sdk import LocationSubscriber ,CAPIFInvokerConnector
+from evolved5g.sdk import LocationSubscriber , QosAwareness,CAPIFInvokerConnector,UsageThreshold
 from evolved5g.swagger_client.rest import ApiException
 from evolved5g.swagger_client import LoginApi, User ,Configuration ,ApiClient
 from evolved5g.swagger_client.models import Token
+
+
+network_app_id = "Zortenetapp"
+
+
+
+def read_and_delete_all_existing_qos_subscriptions(qos_awereness):
+    
+    
+
+    try:
+        all_subscriptions = qos_awereness.get_all_subscriptions(network_app_id)
+        print(all_subscriptions)
+
+        for subscription in all_subscriptions:
+            id = subscription.link.split("/")[-1]
+            print("Deleting subscription with id: " + id)
+            qos_awereness.delete_subscription(network_app_id, id)
+    except ApiException as ex:
+        if ex.status == 404:
+            print("No active transcriptions found")
+        else: 
+            raise
+
+
+
+
+def read_and_delete_all_existing_location_subscriptions(location_subscriber):
+
+
+    try:
+        all_subscriptions = location_subscriber.get_all_subscriptions(network_app_id, 0, 100)
+
+        print(all_subscriptions)
+
+        for subscription in all_subscriptions:
+            id = subscription.link.split("/")[-1]
+            print("Deleting subscription with id: " + id)
+            location_subscriber.delete_subscription(network_app_id, id)
+    except ApiException as ex:
+        if ex.status == 404:
+            print("No active transcriptions found")
+        else: 
+            raise
+
 
 
 policy_db={}
@@ -23,12 +69,30 @@ vapp_db={
     'token':0
 }
 
+
+
+
+
+
 q = Queue(maxsize = 1)
 
 
-network_app_id = "Zortenetapp"
+
+influx_ip=os.getenv('INFLUX_IP')
+influx_port=os.getenv('INFLUX_PORT')
+
+
+client = InfluxDBClient(influx_ip,influx_port, 'admin' , 'admin')
+client.switch_database('influx')
+
+
 nef_url = "https://{}:{}".format(os.getenv('NEF_IP'), os.environ.get('NEF_PORT'))
-nef_callback = "http://{}:{}/netAppCallback".format(os.getenv('NEF_CALLBACK_IP'), os.environ.get('NEF_CALLBACK_PORT'))
+
+
+nef_callback_location = "http://{}:{}/netAppCallback_{}".format(os.getenv('NEF_CALLBACK_IP'), os.environ.get('NEF_CALLBACK_PORT'),"location")
+nef_callback_qos = "http://{}:{}/netAppCallback_{}".format(os.getenv('NEF_CALLBACK_IP'), os.environ.get('NEF_CALLBACK_PORT'),"qos")
+
+
 nef_user = os.getenv('NEF_USER')
 nef_pass = os.environ.get('NEF_PASS')
 capif_host = os.getenv('CAPIF_HOSTNAME')
@@ -36,51 +100,178 @@ capif_https_port = os.environ.get('CAPIF_PORT_HTTPS')
 folder_path_for_certificates_and_capif_api_key = os.environ.get('PATH_TO_CERTS')
 
 
-configuration = Configuration()
-configuration.host = nef_url
-configuration.verify_ssl = False
-api_client = ApiClient(configuration=configuration)
-api_client.select_header_content_type(["application/x-www-form-urlencoded"])
-api = LoginApi(api_client)
-token = api.login_access_token_api_v1_login_access_token_post("", nef_user, nef_pass, "", "", "")
+# configuration = Configuration()
+# configuration.host = nef_url
+# configuration.verify_ssl = False
+# api_client = ApiClient(configuration=configuration)
+# api_client.select_header_content_type(["application/x-www-form-urlencoded"])
+# api = LoginApi(api_client)
+# token = api.login_access_token_api_v1_login_access_token_post("", nef_user, nef_pass, "", "", "")
 
-nef_token = token.access_token
+# nef_token = token.access_token
 
+qos_awereness = QosAwareness(nef_url,folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
+location_subscriber = LocationSubscriber(nef_url,folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
+
+
+read_and_delete_all_existing_qos_subscriptions(qos_awereness)
+read_and_delete_all_existing_location_subscriptions(location_subscriber)
+
+
+
+print(nef_token)
 
 app = Flask(__name__)
 
 
 
-@app.route('/', methods=["GET", "POST"])
+ue_mapping_qos={
+    "10.0.0.3":"camera_controler",
+    "10.0.0.2":"robot_arm",
+    "10.0.0.1":"industrial_belt"
+}
+
+ue_mapping_location={
+    "10003@domain.com":"camera_controler",
+    "10002@domain.com":"robot_arm",
+    "10001@domain.com":"industrial_belt"
+}
+
+
+devs=[
+    {
+        "tags": {"device": "camera_controler"},
+        "measurement": "devices",
+        "fields":{"empty":"empty"}
+    },
+    {
+        "tags": {"device": "robot_arm"},
+        "measurement": "devices",
+        "fields":{"empty":"empty"}
+    },
+    {
+        "tags": {"device": "industrial_belt"},
+        "measurement": "devices",
+        "fields":{"empty":"empty"}
+    }
+]
+
+client.write_points(devs)
+
+
+
+
+@app.route('/', methods=["GET"])
 def index():
-    return "hi"
+    return {
+            "response":{
+                "data":"zorte_netapp is up"
+            }
+        }
 
 
 
-@app.route('/subscription', methods=["GET","POST"])
-def vappRegister_capif():
-    data = request.json
-    external_id=data['id']
-    times=data['num_of_reports']
-    expire_time=data['exp_time']
+@app.route('/nef_qos', methods=["GET"])
+def qos_subscr():
+    
 
-    location_subscriber = LocationSubscriber(nef_url, nef_token, folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
+    mon_eq=["10.0.0.1","10.0.0.2","10.0.0.3"]
+    qos_awereness = QosAwareness(nef_url,folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
 
 
-    subscription = location_subscriber.create_subscription(
-        netapp_id=network_app_id,
-        external_id=external_id,
-        notification_destination=nef_callback,
-        maximum_number_of_reports=times,
-        monitor_expire_time=expire_time
-    )
-    monitoring_response = subscription.to_dict()
+    for meq in mon_eq:
+
+        
+        equipment_network_identifier = meq
+        network_identifier = QosAwareness.NetworkIdentifier.IP_V4_ADDRESS
+        conversational_voice = QosAwareness.GBRQosReference.CONVERSATIONAL_VOICE
+        # In this scenario we monitor UPLINK
+        uplink = QosAwareness.QosMonitoringParameter.UPLINK
+        # Minimum delay of data package during uplink, in milliseconds
+        uplink_threshold = 20
+        gigabyte = 1024 * 1024 * 1024
+        # Up to 10 gigabytes 5 GB downlink, 5gb uplink
+        usage_threshold = UsageThreshold(duration=None,  # not supported
+                                         total_volume=10 * gigabyte,  # 10 Gigabytes of total volume
+                                         downlink_volume=5 * gigabyte,  # 5 Gigabytes for downlink
+                                         uplink_volume=5 * gigabyte  # 5 Gigabytes for uplink
+                                         )
+
+
+        try:
+
+            subscription = qos_awereness.create_guaranteed_bit_rate_subscription(
+                netapp_id=network_app_id,
+                equipment_network_identifier=equipment_network_identifier,
+                network_identifier=network_identifier,
+                notification_destination=nef_callback_qos,
+                gbr_qos_reference=conversational_voice,
+                usage_threshold=usage_threshold,
+                qos_monitoring_parameter=uplink,
+                threshold=uplink_threshold,
+                reporting_mode=QosAwareness.EventTriggeredReportingConfiguration(wait_time_in_seconds=1)
+            )
+
+            qos_awereness_response = subscription.to_dict()
+        except:
+            pass
+
+    return {"response":"qos subscriptions created"}
+
+
+
+
+@app.route('/nef_location', methods=["GET"])
+def location_subscr():
+
+
+    mon_eq=["10001@domain.com","10002@domain.com","10003@domain.com"]
+
+
+    for meq in mon_eq:
+
+        external_id=meq
+        times=1000
+        expire_time=(datetime.datetime.today() + datetime.timedelta(days=1)).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+        try:
+
+            subscription = location_subscriber.create_subscription(
+                netapp_id=network_app_id,
+                external_id=external_id,
+                notification_destination=nef_callback_location,
+                maximum_number_of_reports=times,
+                monitor_expire_time=expire_time
+            )
+
+            monitoring_response = subscription.to_dict()
+        except:
+            pass
+
+
+
+
+    return {"response":"location subscriptions created"}
 
 
 
 
 
-    return monitoring_response
+@app.route('/set_location_policy',methods=["GET"])
+def setLocPolicy():
+
+    pid=1
+    exid="10003@domain.com"
+    cells="AAAAA1001,AAAAA1002"
+    policy_db[exid]={
+        "policy_id":pid,
+        "cells":cells
+    }
+ 
+    return {"response":"policy enforced"}
+
+
+
 
 
 
@@ -89,14 +280,16 @@ def vappRegister_capif():
 def setPolicy():
     data = request.json
     print(data)
-    pid=data['pol-id']
-    exid=data['id']
-    cells=data['cells']
-    policy_db[exid]={
-        "policy_id":pid,
-        "cells":cells
-    }
-    print(policy_db)
+
+
+    # pid=data['pol-id']
+    # exid=data['id']
+    # cells=data['cells']
+    # policy_db[exid]={
+    #     "policy_id":pid,
+    #     "cells":cells
+    # }
+    # print(policy_db)
     return data
 
 
@@ -113,8 +306,34 @@ def VappConsume():
 
 
 
-@app.route('/netAppCallback',methods=["GET","POST"])
-def netAppCallback():
+@app.route('/netAppCallback_qos',methods=["GET","POST"])
+def netAppCallback_qos():
+    data = request.json
+
+    ipv4Addr = data["ipv4Addr"]
+    event = data["eventReports"][0]['event']
+
+
+    data_point={
+                "tags": {"device": ue_mapping_qos[ipv4Addr]},
+                "measurement": "nef_qos",
+                "fields":{
+                    "event":event
+                    
+                }
+        }
+
+
+    client.write_points([data_point])
+    
+    print(data)
+    return jsonify(data)
+
+
+
+
+@app.route('/netAppCallback_location',methods=["GET","POST"])
+def netAppCallback_location():
 
     data = request.json
 
@@ -123,17 +342,36 @@ def netAppCallback():
         'msg':data
     }
 
+    cell_id = data["locationInfo"]["cellId"]
+    externalId = data["externalId"]
+    ipv4Addr = data["ipv4Addr"]
+    enodeBId = data["locationInfo"]["enodeBId"]
+
+    data_point={
+                "tags": {"device": ue_mapping_location[externalId]},
+                "measurement": "nef_location_log",
+                "fields":{
+                    "cellId":cell_id,
+                    "externalId":externalId
+                }
+        }
+
     print(data)
 
 
     ex_id=data['externalId']
     if ex_id in policy_db:
         if data['locationInfo']['cellId'] not in policy_db[ex_id]['cells']:
+            data_point["measurement"] = "nef_location_alert"
             data['type']='alert'
         else:
             data['type']='log'
     else:
         data['type']='log'        
+
+
+
+    client.write_points([data_point])
 
 
     payload={
@@ -143,10 +381,6 @@ def netAppCallback():
         'Content-type': 'application/json'
     }
 
-    try:
-        auth_response = requests.post("http://{}:{}/vapp_callback".format(vapp_db['host_name'],vapp_db['port']), headers=headers,json=payload)
-    except:
-        pass
 
     if(q.empty()):
         q.put(data)
