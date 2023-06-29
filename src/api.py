@@ -1,5 +1,6 @@
 import time
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 import requests
 import evolved5g
 import os
@@ -9,6 +10,8 @@ from queue import Queue
 from threading import Thread
 import datetime
 from influxdb import InfluxDBClient
+import sqlite3
+from sqlite_utils import create_policyDB, get_ue_policies, update_policy , operation_status
 
 from evolved5g.sdk import LocationSubscriber , QosAwareness,CAPIFInvokerConnector,UsageThreshold
 from evolved5g.swagger_client.rest import ApiException
@@ -18,6 +21,7 @@ from evolved5g.swagger_client.models import Token
 
 network_app_id = "Zortenetapp"
 
+create_policyDB()
 
 
 def read_and_delete_all_existing_qos_subscriptions(qos_awereness):
@@ -61,19 +65,6 @@ def read_and_delete_all_existing_location_subscriptions(location_subscriber):
 
 
 
-policy_db={}
-
-vapp_db={
-    'host_name':"",
-    'port':0,
-    'token':0
-}
-
-
-
-
-
-
 q = Queue(maxsize = 1)
 
 
@@ -100,15 +91,6 @@ capif_https_port = os.environ.get('CAPIF_PORT_HTTPS')
 folder_path_for_certificates_and_capif_api_key = os.environ.get('PATH_TO_CERTS')
 
 
-# configuration = Configuration()
-# configuration.host = nef_url
-# configuration.verify_ssl = False
-# api_client = ApiClient(configuration=configuration)
-# api_client.select_header_content_type(["application/x-www-form-urlencoded"])
-# api = LoginApi(api_client)
-# token = api.login_access_token_api_v1_login_access_token_post("", nef_user, nef_pass, "", "", "")
-
-# nef_token = token.access_token
 
 qos_awereness = QosAwareness(nef_url,folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
 location_subscriber = LocationSubscriber(nef_url,folder_path_for_certificates_and_capif_api_key, capif_host, capif_https_port)
@@ -119,10 +101,10 @@ read_and_delete_all_existing_location_subscriptions(location_subscriber)
 
 
 
-print(nef_token)
+
 
 app = Flask(__name__)
-
+CORS(app)
 
 
 ue_mapping_qos={
@@ -271,26 +253,29 @@ def setLocPolicy():
     return {"response":"policy enforced"}
 
 
-
-
-
-
-
 @app.route('/setPolicy',methods=["POST"])
 def setPolicy():
     data = request.json
-    print(data)
+
+    ue = data['ue']
+    update_policy("1",ue)
+    in_policy = get_ue_policies()
+ 
+
+    return {"in_policy":in_policy}
 
 
-    # pid=data['pol-id']
-    # exid=data['id']
-    # cells=data['cells']
-    # policy_db[exid]={
-    #     "policy_id":pid,
-    #     "cells":cells
-    # }
-    # print(policy_db)
-    return data
+
+@app.route('/removePolicy',methods=["POST"])
+def removePolicy():
+    data = request.json
+
+    ue = data['ue']
+    update_policy("0",ue)
+    in_policy = get_ue_policies()
+
+
+    return {"in_policy":in_policy}
 
 
 
@@ -305,9 +290,18 @@ def VappConsume():
     return log_record
 
 
+@app.route('/check_operation',methods=["GET"])
+def check_operation():
+
+    return operation_status(client)
+
+
 
 @app.route('/netAppCallback_qos',methods=["GET","POST"])
 def netAppCallback_qos():
+
+    in_policy = get_ue_policies()
+
     data = request.json
 
     ipv4Addr = data["ipv4Addr"]
@@ -326,7 +320,39 @@ def netAppCallback_qos():
 
     client.write_points([data_point])
     
-    print(data)
+
+
+    data_point={
+        "tags": {"none": "none"},
+        "measurement": "alerts",
+        "fields":{
+            "event": "",
+            "status":""
+            
+        }
+    }
+
+
+    op_status = operation_status(client)
+
+    if(op_status["operation"]):
+        if(len(in_policy)==0):
+            data_point["fields"]["event"] = "No QoS policy enforced"
+        else:
+            data_point["fields"]["event"] = "QoS of [{}] is quaranteed".format(','.join(in_policy))
+        
+
+        data_point["fields"]["status"] = "Running"
+
+    else:
+        data_point["fields"]["event"] = "QoS of [{}] is not quaranteed overall".format(','.join(in_policy))        
+        data_point["fields"]["status"] = "Stopped"
+
+
+
+    client.write_points([data_point])
+
+
     return jsonify(data)
 
 

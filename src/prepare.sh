@@ -9,5 +9,7 @@ jq -r .csr_common_name=\""zorte"$(date +%s)\" capif_registration.json >> tmp.jso
 jq -r .capif_netapp_username=\""zorte"$(date +%s)\" capif_registration.json >> tmp.json && mv tmp.json capif_registration.json
 
 evolved5g register-and-onboard-to-capif --config_file_full_path="/zortenet_netapp/capif_registration.json" --environment="development"
+# evolved5g register-and-onboard-to-capif --config_file_full_path="/zortenet_netapp/capif_registration.json"
+
 python3  /zortenet_netapp/api.py
 

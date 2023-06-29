@@ -1,4 +1,4 @@
-FROM python:3.10
+ROM python:3.10
 ENV PYTHONUNBUFFERED 1
 
 WORKDIR /zortenet_netapp

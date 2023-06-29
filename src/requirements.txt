@@ -1,4 +1,5 @@
 Flask
+Flask-Cors
 requests==2.26.0
 evolved5g
 pyopenssl
