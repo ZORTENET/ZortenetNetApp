@@ -12,26 +12,26 @@ services:
     env_file:
       - .env
 
-    environment:
-      - NEF_IP=${NEF_IP}
-      - NEF_PORT=${NEF_PORT}
-      - NEF_USER=${NEF_USER}
-      - NEF_PASS=${NEF_PASS}
-      - PATH_TO_CERTS=${PATH_TO_CERTS}
-      - CAPIF_HOSTNAME=${CAPIF_HOSTNAME}
-      - CAPIF_PORT=${CAPIF_PORT}
-      - CAPIF_PORT_HTTPS=${CAPIF_PORT_HTTPS}
-      - CAPIF_IP=${CAPIF_IP}
-      - NEF_CALLBACK_IP=${NEF_CALLBACK_IP}
-      - NEF_CALLBACK_PORT=${NEF_CALLBACK_PORT}
-
     container_name: zorte_netapp
 
     extra_hosts:
       - capifcore:${CAPIF_IP}
     ports:
       - "5000:5000"
-      
+   
+
+  grafana:
+    build:
+      context: "./grafana-svc"
+      dockerfile: Dockerfile
+    container_name: grafana
+
+    extra_hosts:
+      - influxdb:${INFLUX_IP}
+
+    ports:
+      - "3000:3000"
+
   influxdb:
     image: influxdb:1.8-alpine
     ports:
