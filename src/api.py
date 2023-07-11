@@ -239,18 +239,18 @@ def location_subscr():
 
 
 
-@app.route('/set_location_policy',methods=["GET"])
-def setLocPolicy():
+# @app.route('/set_location_policy',methods=["GET"])
+# def setLocPolicy():
 
-    pid=1
-    exid="10003@domain.com"
-    cells="AAAAA1001,AAAAA1002"
-    policy_db[exid]={
-        "policy_id":pid,
-        "cells":cells
-    }
+#     pid=1
+#     exid="10003@domain.com"
+#     cells="AAAAA1001,AAAAA1002"
+#     policy_db[exid]={
+#         "policy_id":pid,
+#         "cells":cells
+#     }
  
-    return {"response":"policy enforced"}
+#     return {"response":"policy enforced"}
 
 
 @app.route('/setPolicy',methods=["POST"])
@@ -279,15 +279,15 @@ def removePolicy():
 
 
 
-@app.route('/VappConsume',methods=["GET","POST"])
-def VappConsume():
-    log_record={
-        "nothing":"nothing"
-    }
-    if(not q.empty()):
-        log_record=q.get()
+# @app.route('/VappConsume',methods=["GET","POST"])
+# def VappConsume():
+#     log_record={
+#         "nothing":"nothing"
+#     }
+#     if(not q.empty()):
+#         log_record=q.get()
 
-    return log_record
+#     return log_record
 
 
 @app.route('/check_operation',methods=["GET"])
@@ -358,63 +358,63 @@ def netAppCallback_qos():
 
 
 
-@app.route('/netAppCallback_location',methods=["GET","POST"])
-def netAppCallback_location():
+# @app.route('/netAppCallback_location',methods=["GET","POST"])
+# def netAppCallback_location():
 
-    data = request.json
+#     data = request.json
 
-    d={
-        'policy':policy_db,
-        'msg':data
-    }
+#     d={
+#         'policy':policy_db,
+#         'msg':data
+#     }
 
-    cell_id = data["locationInfo"]["cellId"]
-    externalId = data["externalId"]
-    ipv4Addr = data["ipv4Addr"]
-    enodeBId = data["locationInfo"]["enodeBId"]
+#     cell_id = data["locationInfo"]["cellId"]
+#     externalId = data["externalId"]
+#     ipv4Addr = data["ipv4Addr"]
+#     enodeBId = data["locationInfo"]["enodeBId"]
 
-    data_point={
-                "tags": {"device": ue_mapping_location[externalId]},
-                "measurement": "nef_location_log",
-                "fields":{
-                    "cellId":cell_id,
-                    "externalId":externalId
-                }
-        }
+#     data_point={
+#                 "tags": {"device": ue_mapping_location[externalId]},
+#                 "measurement": "nef_location_log",
+#                 "fields":{
+#                     "cellId":cell_id,
+#                     "externalId":externalId
+#                 }
+#         }
 
-    print(data)
-
-
-    ex_id=data['externalId']
-    if ex_id in policy_db:
-        if data['locationInfo']['cellId'] not in policy_db[ex_id]['cells']:
-            data_point["measurement"] = "nef_location_alert"
-            data['type']='alert'
-        else:
-            data['type']='log'
-    else:
-        data['type']='log'        
+#     print(data)
 
 
+#     ex_id=data['externalId']
+#     if ex_id in policy_db:
+#         if data['locationInfo']['cellId'] not in policy_db[ex_id]['cells']:
+#             data_point["measurement"] = "nef_location_alert"
+#             data['type']='alert'
+#         else:
+#             data['type']='log'
+#     else:
+#         data['type']='log'        
 
-    client.write_points([data_point])
 
 
-    payload={
-        "data":data
-    }
-    headers = {
-        'Content-type': 'application/json'
-    }
+#     client.write_points([data_point])
 
 
-    if(q.empty()):
-        q.put(data)
-    else:
-        q.get()
-        q.put(data)
+#     payload={
+#         "data":data
+#     }
+#     headers = {
+#         'Content-type': 'application/json'
+#     }
 
-    return jsonify(data)
+
+#     if(q.empty()):
+#         q.put(data)
+#     else:
+#         q.get()
+#         q.put(data)
+
+#     return jsonify(data)
 
 if __name__ == '__main__':   
     app.run(host='0.0.0.0',port=5000,debug=True)
